@@ -2,7 +2,6 @@ import os
 import sys
 from datetime import date, timedelta
 from xml.etree.ElementTree import Element, SubElement, ElementTree
-
 import requests
 
 
@@ -18,14 +17,10 @@ if not BROWSERLESS_TOKEN:
 
 
 # ============================================================
-# CONSTRUCTION AUTOMATIQUE DE L'URL FFTA
+# URL FFTA - 12 MOIS GLISSANTS
 # ============================================================
 
-# Date de fin = aujourd'hui
 end_date = date.today()
-
-# Date de début = 12 mois avant
-# On utilise 365 jours pour éviter les problèmes avec le 29 février.
 start_date = end_date - timedelta(days=365)
 
 FFTA_URL = (
@@ -47,18 +42,13 @@ print()
 
 
 # ============================================================
-# URL BROWSERLESS
+# BROWSERLESS
 # ============================================================
 
 BROWSERLESS_URL = (
     "https://production-sfo.browserless.io/scrape"
     f"?token={BROWSERLESS_TOKEN}"
 )
-
-
-# ============================================================
-# REQUÊTE BROWSERLESS
-# ============================================================
 
 payload = {
     "url": FFTA_URL,
@@ -114,7 +104,7 @@ except ValueError:
 
 
 # ============================================================
-# EXTRACTION DES DONNÉES
+# EXTRACTION DES BLOCS
 # ============================================================
 
 data = result.get("data", [])
@@ -150,6 +140,88 @@ print("Liens résultats trouvés :", len(result_elements))
 
 
 # ============================================================
+# FONCTIONS DE LECTURE DES RÉSULTATS BROWSERLESS
+# ============================================================
+
+def extract_text(item):
+    """
+    Récupère le texte même si Browserless retourne
+    une structure légèrement différente.
+    """
+
+    if isinstance(item, list):
+
+        if not item:
+            return ""
+
+        return extract_text(item[0])
+
+    if isinstance(item, dict):
+
+        text = item.get("text")
+
+        if isinstance(text, str):
+            return text.strip()
+
+        # Certaines réponses peuvent utiliser textContent.
+        text_content = item.get("textContent")
+
+        if isinstance(text_content, str):
+            return text_content.strip()
+
+    return ""
+
+
+def extract_href(item):
+    """
+    Récupère le href en descendant dans les listes/dictionnaires
+    retournés par Browserless.
+    """
+
+    if isinstance(item, list):
+
+        for subitem in item:
+
+            href = extract_href(subitem)
+
+            if href:
+                return href
+
+        return ""
+
+    if isinstance(item, dict):
+
+        # Cas classique :
+        # {"attributes": {"href": "..."}}
+        attributes = item.get("attributes")
+
+        if isinstance(attributes, dict):
+
+            href = attributes.get("href")
+
+            if isinstance(href, str) and href:
+                return href
+
+        # Autre éventualité : href directement présent.
+        href = item.get("href")
+
+        if isinstance(href, str) and href:
+            return href
+
+        # Recherche récursive dans les autres champs.
+        for value in item.values():
+
+            if isinstance(value, (dict, list)):
+
+                href = extract_href(value)
+
+                if href:
+                    return href
+
+    return ""
+
+
+# ============================================================
 # CRÉATION DE LA LISTE DES COMPÉTITIONS
 # ============================================================
 
@@ -163,18 +235,9 @@ count = min(
 
 for i in range(count):
 
-    title = title_elements[i].get("text", "").strip()
+    title = extract_text(title_elements[i])
 
-    result_item = result_elements[i]
-
-    # Browserless peut retourner une liste pour le résultat
-    # du sélecteur du lien.
-    if isinstance(result_item, list):
-        if not result_item:
-            continue
-        result_item = result_item[0]
-
-    link = result_item.get("attributes", {}).get("href", "")
+    link = extract_href(result_elements[i])
 
     if not title:
         continue
@@ -182,7 +245,7 @@ for i in range(count):
     if not link:
         continue
 
-    # Certains liens peuvent éventuellement être relatifs.
+    # Si le lien est relatif.
     if link.startswith("/"):
         link = "https://www.ffta.fr" + link
 
@@ -193,11 +256,17 @@ for i in range(count):
         }
     )
 
+
+print()
+print("Compétitions avec titre + lien :", len(competitions))
+
+
 # ============================================================
 # VÉRIFICATION
 # ============================================================
 
 if not competitions:
+
     print()
     print("ERREUR : aucune compétition exploitable.")
     print("Le RSS ne sera pas remplacé.")
@@ -206,14 +275,16 @@ if not competitions:
 
 print()
 print("Compétitions qui seront placées dans le RSS :")
+print()
 
 for competition in competitions:
+
     print("-", competition["title"])
     print("  ", competition["link"])
 
 
 # ============================================================
-# CRÉATION DU FICHIER RSS
+# CRÉATION DU RSS
 # ============================================================
 
 rss = Element(
@@ -235,15 +306,13 @@ SubElement(
     "description"
 ).text = (
     "Résultats des compétitions FFTA "
-    "pour le département 57."
+    "pour le département 58."
 )
 
 SubElement(
     channel,
     "link"
-).text = (
-    "https://www.ffta.fr/competitions"
-)
+).text = "https://www.ffta.fr/competitions"
 
 SubElement(
     channel,
@@ -283,26 +352,28 @@ for competition in competitions:
 
 
 # ============================================================
-# ÉCRITURE DU FICHIER
+# ÉCRITURE DU FICHIER RSS
 # ============================================================
+
+output_file = "FFTA_Resultats.xml"
 
 tree = ElementTree(rss)
 
 tree.write(
-    "FFTA_Resultats.xml",
+    output_file,
     encoding="utf-8",
     xml_declaration=True
 )
+
 
 print()
 print("========================================")
 print("RSS généré avec succès !")
 print("========================================")
 print()
-print("Fichier créé : FFTA_Resultats.xml")
+print("Fichier créé :", output_file)
 print()
 print(
     f"Période FFTA : {start_date.isoformat()} "
     f"→ {end_date.isoformat()}"
 )
-print()
