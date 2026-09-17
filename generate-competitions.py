@@ -171,31 +171,32 @@ for element in competition_elements:
     if not title_element:
         continue
 
-    title = " ".join(title_element.stripped_strings).strip()
+title = " ".join(title_element.stripped_strings).strip()
 
-    if not title:
-        continue
+if not title:
+    continue
 
-    # Récupération des dates de la compétition.
-    if date_element:
-        competition_date = " ".join(date_element.stripped_strings).strip()
-    else:
-        competition_date = ""
+date_element = soup.select_one(".competition_item__dates")
 
-    detail_link = find_link(soup, "Détail")
-    mandat_link = find_link(soup, "Mandat")
+if date_element:
+    competition_date = " ".join(date_element.stripped_strings).strip()
+else:
+    competition_date = ""
+
+detail_link = find_link(soup, "Détail")
+mandat_link = find_link(soup, "Mandat")
 
     if not detail_link:
         continue
 
     competitions.append(
-        {
-            "title": unescape(title),
-            "date": competition_date,
-            "detail": detail_link,
-            "mandat": mandat_link
-        }
-    )
+    {
+        "title": unescape(title),
+        "date": competition_date,
+        "detail": detail_link,
+        "mandat": mandat_link
+    }
+)
 
 
 print()
@@ -303,7 +304,18 @@ for competition in competitions:
     item,
     "description"
 )
+    
+if competition["date"]:
+    description_element.text = competition["date"]
 
+    if competition["mandat"]:
+        description_element.text += "\nMandat Disponible !"
+else:
+    if competition["mandat"]:
+        description_element.text = "Mandat Disponible !"
+    else:
+        description_element.text = ""
+        
 description_parts = []
 
 if competition["date"]:
