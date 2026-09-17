@@ -3,8 +3,8 @@ name: Publier le RSS
 on:
   workflow_dispatch:
   push:
-    paths:
-      - "ffta.xml"
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -30,11 +30,11 @@ jobs:
       - name: Configurer GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Préparer le site
+      - name: Préparer les fichiers
         uses: actions/upload-pages-artifact@v3
         with:
           path: "."
 
-      - name: Publier
+      - name: Publier sur GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
