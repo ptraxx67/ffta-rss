@@ -1,4 +1,4 @@
-name: Publier le RSS RESULTATS FFTA
+name: Publier le RSS
 
 on:
   workflow_dispatch:
