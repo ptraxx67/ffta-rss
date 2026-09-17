@@ -328,7 +328,7 @@ SubElement(
     "description"
 ).text = (
     "Résultats des compétitions FFTA "
-    "pour le département 58."
+    "pour le département 57."
 )
 
 SubElement(
