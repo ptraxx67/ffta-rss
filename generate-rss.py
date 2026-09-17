@@ -28,7 +28,7 @@ end_date = date.today()
 # On utilise 365 jours pour éviter les problèmes avec le 29 février.
 start_date = end_date - timedelta(days=365)
 
-FFTA_URL = (
+FFTA_RESULT_URL = (
     "https://www.ffta.fr/competitions"
     "?search="
     f"&start={start_date.isoformat()}"
@@ -41,8 +41,8 @@ FFTA_URL = (
     "&sort_order=DESC"
 )
 
-print("URL FFTA utilisée :")
-print(FFTA_URL)
+print("URL Résultats FFTA utilisée :")
+print(FFTA_RESULT_URL)
 print()
 
 
@@ -61,7 +61,7 @@ BROWSERLESS_URL = (
 # ============================================================
 
 payload = {
-    "url": FFTA_URL,
+    "url": FFTA_RESULT_URL,
 
     "elements": [
         {
@@ -230,7 +230,7 @@ SubElement(
     "description"
 ).text = (
     "Résultats des compétitions FFTA "
-    "pour le département 58."
+    "pour le département 57."
 )
 
 SubElement(
@@ -284,7 +284,7 @@ for competition in competitions:
 tree = ElementTree(rss)
 
 tree.write(
-    "ffta.xml",
+    "FFTA_Resultats.xml",
     encoding="utf-8",
     xml_declaration=True
 )
@@ -295,7 +295,7 @@ print("========================================")
 print("RSS généré avec succès !")
 print("========================================")
 print()
-print("Fichier créé : ffta.xml")
+print("Fichier créé : FFTA_Resultats.xml")
 print()
 print(
     f"Période FFTA : {start_date.isoformat()} "
