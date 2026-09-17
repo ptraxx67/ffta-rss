@@ -80,11 +80,13 @@ except requests.RequestException as e:
     print(e)
     sys.exit(1)
 
+
 if response.status_code != 200:
     print("ERREUR Browserless.")
     print("Code HTTP :", response.status_code)
     print(response.text)
     sys.exit(1)
+
 
 try:
     result = response.json()
@@ -104,6 +106,7 @@ if not data:
     print("ERREUR : aucune donnée reçue de Browserless.")
     sys.exit(1)
 
+
 competition_elements = []
 
 for item in data:
@@ -111,7 +114,9 @@ for item in data:
         competition_elements = item.get("results", [])
         break
 
+
 print("Compétitions trouvées :", len(competition_elements))
+
 
 if not competition_elements:
     print("ERREUR : aucune compétition trouvée.")
@@ -123,6 +128,10 @@ if not competition_elements:
 # ============================================================
 
 def absolute_url(url):
+    """
+    Transforme une URL relative en URL absolue.
+    """
+
     if not url:
         return ""
 
@@ -134,17 +143,20 @@ def absolute_url(url):
 
 def find_link(article, wanted_text):
     """
-    Cherche dans une compétition le lien dont le texte correspond
-    à wanted_text, par exemple 'Mandat' ou 'Détail'.
+    Cherche dans une compétition le lien dont le texte
+    correspond à wanted_text, par exemple 'Mandat' ou 'Détail'.
     """
 
     wanted_text = wanted_text.lower().strip()
 
     for link in article.find_all("a"):
+
         text = " ".join(link.stripped_strings).strip().lower()
 
         if text == wanted_text:
+
             href = link.get("href", "")
+
             return absolute_url(href)
 
     return ""
@@ -156,6 +168,7 @@ def find_link(article, wanted_text):
 
 competitions = []
 
+
 for element in competition_elements:
 
     html = element.get("html", "")
@@ -163,51 +176,118 @@ for element in competition_elements:
     if not html:
         continue
 
-    soup = BeautifulSoup(html, "html.parser")
 
-    title_element = soup.select_one(".competition_item__title")
-    date_element = soup.select_one(".competition_item__dates")
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
+
+
+    # --------------------------------------------------------
+    # TITRE
+    # --------------------------------------------------------
+
+    title_element = soup.select_one(
+        ".competition_item__title"
+    )
 
     if not title_element:
         continue
 
-title = " ".join(title_element.stripped_strings).strip()
 
-if not title:
-    continue
+    title = " ".join(
+        title_element.stripped_strings
+    ).strip()
 
-date_element = soup.select_one(".competition_item__dates")
 
-if date_element:
-    competition_date = " ".join(date_element.stripped_strings).strip()
-else:
-    competition_date = ""
+    if not title:
+        continue
 
-detail_link = find_link(soup, "Détail")
-mandat_link = find_link(soup, "Mandat")
+
+    # --------------------------------------------------------
+    # DATE
+    # --------------------------------------------------------
+
+    date_element = soup.select_one(
+        ".competition_item__dates"
+    )
+
+
+    if date_element:
+
+        competition_date = " ".join(
+            date_element.stripped_strings
+        ).strip()
+
+    else:
+
+        competition_date = ""
+
+
+    # --------------------------------------------------------
+    # LIEN DÉTAIL
+    # --------------------------------------------------------
+
+    detail_link = find_link(
+        soup,
+        "Détail"
+    )
+
+
+    # --------------------------------------------------------
+    # LIEN MANDAT
+    # --------------------------------------------------------
+
+    mandat_link = find_link(
+        soup,
+        "Mandat"
+    )
+
+
+    # Une compétition sans lien Détail
+    # n'est pas ajoutée au RSS.
 
     if not detail_link:
         continue
 
+
+    # --------------------------------------------------------
+    # AJOUT À LA LISTE
+    # --------------------------------------------------------
+
     competitions.append(
-    {
-        "title": unescape(title),
-        "date": competition_date,
-        "detail": detail_link,
-        "mandat": mandat_link
-    }
+        {
+            "title": unescape(title),
+            "date": competition_date,
+            "detail": detail_link,
+            "mandat": mandat_link
+        }
+    )
+
+
+# ============================================================
+# VÉRIFICATION
+# ============================================================
+
+print()
+print(
+    "Compétitions exploitables :",
+    len(competitions)
 )
 
 
-print()
-print("Compétitions exploitables :", len(competitions))
-
 mandat_count = sum(
-    1 for competition in competitions
+    1
+    for competition in competitions
     if competition["mandat"]
 )
 
-print("Mandats disponibles :", mandat_count)
+
+print(
+    "Mandats disponibles :",
+    mandat_count
+)
+
 print()
 
 
@@ -216,22 +296,58 @@ print()
 # ============================================================
 
 if not competitions:
-    print("ERREUR : aucune compétition exploitable.")
-    print("Le RSS ne sera pas remplacé.")
+
+    print(
+        "ERREUR : aucune compétition exploitable."
+    )
+
+    print(
+        "Le RSS ne sera pas remplacé."
+    )
+
     sys.exit(1)
 
-print("Compétitions qui seront placées dans le RSS :")
+
+print(
+    "Compétitions qui seront placées dans le RSS :"
+)
+
 print()
+
 
 for competition in competitions:
 
-    print("-", competition["title"])
-    print("  Détail :", competition["detail"])
+    print(
+        "-",
+        competition["title"]
+    )
+
+    print(
+        "  Date :",
+        competition["date"]
+        if competition["date"]
+        else "non disponible"
+    )
+
+    print(
+        "  Détail :",
+        competition["detail"]
+    )
+
 
     if competition["mandat"]:
-        print("  Mandat :", competition["mandat"])
+
+        print(
+            "  Mandat :",
+            competition["mandat"]
+        )
+
     else:
-        print("  Mandat : non disponible")
+
+        print(
+            "  Mandat : non disponible"
+        )
+
 
     print()
 
@@ -247,25 +363,33 @@ rss = Element(
     }
 )
 
-channel = SubElement(rss, "channel")
+
+channel = SubElement(
+    rss,
+    "channel"
+)
+
 
 SubElement(
     channel,
     "title"
 ).text = "FFTA - Compétitions à venir"
 
+
 SubElement(
     channel,
     "description"
 ).text = (
     "Calendrier des compétitions FFTA à venir "
-    "pour le département 57."
+    "pour le département 58."
 )
+
 
 SubElement(
     channel,
     "link"
 ).text = "https://www.ffta.fr/competitions"
+
 
 SubElement(
     channel,
@@ -279,77 +403,82 @@ SubElement(
 
 for competition in competitions:
 
-    item = SubElement(channel, "item")
+    item = SubElement(
+        channel,
+        "item"
+    )
+
+
+    # --------------------------------------------------------
+    # TITRE
+    # --------------------------------------------------------
 
     SubElement(
         item,
         "title"
     ).text = competition["title"]
 
-    # Lien principal = page détail de la compétition.
+
+    # --------------------------------------------------------
+    # LIEN PRINCIPAL = DÉTAIL
+    # --------------------------------------------------------
+
     SubElement(
         item,
         "link"
     ).text = competition["detail"]
+
+
+    # --------------------------------------------------------
+    # GUID
+    # --------------------------------------------------------
 
     SubElement(
         item,
         "guid"
     ).text = competition["detail"]
 
-    # Description :
-    # "Mandat Disponible !" si un mandat existe.
-    # Sinon, description vide.
+
+    # --------------------------------------------------------
+    # DESCRIPTION
+    # --------------------------------------------------------
+    #
+    # Première ligne :
+    #       Date de la compétition
+    #
+    # Deuxième ligne :
+    #       Mandat Disponible !
+    #
+    # uniquement si un mandat existe.
+    #
+
+    description_parts = []
+
+
+    if competition["date"]:
+
+        description_parts.append(
+            competition["date"]
+        )
+
+
+    if competition["mandat"]:
+
+        description_parts.append(
+            "Mandat Disponible !"
+        )
+
+
     description_element = SubElement(
-    item,
-    "description"
-)
-    
-if competition["date"]:
-    description_element.text = competition["date"]
-
-    if competition["mandat"]:
-        description_element.text += "\nMandat Disponible !"
-else:
-    if competition["mandat"]:
-        description_element.text = "Mandat Disponible !"
-    else:
-        description_element.text = ""
-        
-description_parts = []
-
-if competition["date"]:
-    description_parts.append(
-        competition["date"]
+        item,
+        "description"
     )
 
-if competition["mandat"]:
-    description_parts.append(
-        "Mandat Disponible !"
+
+    description_element.text = "\n".join(
+        description_parts
     )
 
-description_element.text = "\n".join(description_parts)
-
-
-# ============================================================
-# ÉCRITURE DU RSS AVEC CDATA
-# ============================================================
-
-output_file = "FFTA_Competition_a_Venir.xml"
-
-# ElementTree échappe normalement le HTML dans <description>.
-# On remplace les descriptions concernées par du CDATA après
-# génération du XML.
-tree = ElementTree(rss)
-tree.write(
-    output_file,
-    encoding="utf-8",
-    xml_declaration=True
-)
-
-# Relecture et transformation des descriptions en CDATA.
-with open(output_file, "r", encoding="utf-8") as f:
-    xml_text = f.read()
 
 # ============================================================
 # ÉCRITURE DU RSS
@@ -357,7 +486,11 @@ with open(output_file, "r", encoding="utf-8") as f:
 
 output_file = "FFTA_Competition_a_Venir.xml"
 
-tree = ElementTree(rss)
+
+tree = ElementTree(
+    rss
+)
+
 
 tree.write(
     output_file,
@@ -365,16 +498,45 @@ tree.write(
     xml_declaration=True
 )
 
+
+# ============================================================
+# FIN
+# ============================================================
+
 print()
 print("========================================")
 print("RSS généré avec succès !")
 print("========================================")
 print()
-print("Fichier créé :", output_file)
+
+
+print(
+    "Fichier créé :",
+    output_file
+)
+
+
 print()
+
+
 print(
     f"Période FFTA : {start_date.isoformat()} "
     f"→ {end_date.isoformat()}"
 )
+
+
 print()
-print("Description : 'Mandat Disponible !' lorsqu'un mandat existe.")
+
+
+print(
+    "Description : date de compétition"
+)
+
+
+print(
+    "              + 'Mandat Disponible !' "
+    "si un mandat existe."
+)
+
+
+print()
