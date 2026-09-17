@@ -1,4 +1,4 @@
-name: Générer le RSS RESULTATS FFTA
+name: Générer le RSS FFTA
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
 
       - name: Vérifier le fichier RSS
         run: |
-          echo "Contenu de FFTA_Resultat.xml :"
+          echo "Contenu de ffta.xml :"
           cat ffta.xml
 
       - name: Enregistrer le RSS dans GitHub
@@ -42,6 +42,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Aucune modification du RSS."
           else
-            git commit -m "Mise à jour du flux RSS RESULTATS FFTA"
+            git commit -m "Mise à jour du flux RSS FFTA"
             git push
           fi
