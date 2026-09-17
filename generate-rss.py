@@ -1,22 +1,38 @@
-import json
 import os
-import urllib.request
-from datetime import datetime
-from email.utils import format_datetime
-from xml.sax.saxutils import escape
+import sys
+from datetime import date, timedelta
+from xml.etree.ElementTree import Element, SubElement, ElementTree
+
+import requests
 
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-BROWSERLESS_TOKEN = os.environ["BROWSERLESS_TOKEN"]
+BROWSERLESS_TOKEN = os.environ.get("BROWSERLESS_TOKEN")
+
+if not BROWSERLESS_TOKEN:
+    print("ERREUR : la variable BROWSERLESS_TOKEN est absente.")
+    sys.exit(1)
+
+
+# ============================================================
+# CONSTRUCTION AUTOMATIQUE DE L'URL FFTA
+# ============================================================
+
+# Date de fin = aujourd'hui
+end_date = date.today()
+
+# Date de début = 12 mois avant
+# On utilise 365 jours pour éviter les problèmes avec le 29 février.
+start_date = end_date - timedelta(days=365)
 
 FFTA_URL = (
     "https://www.ffta.fr/competitions"
     "?search="
-    "&start=2025-09-01"
-    "&end=2026-09-01"
+    f"&start={start_date.isoformat()}"
+    f"&end={end_date.isoformat()}"
     "&dep%5B%5D=58"
     "&discipline=103"
     "&univers=299"
@@ -25,14 +41,23 @@ FFTA_URL = (
     "&sort_order=DESC"
 )
 
-API_URL = (
+print("URL FFTA utilisée :")
+print(FFTA_URL)
+print()
+
+
+# ============================================================
+# URL BROWSERLESS
+# ============================================================
+
+BROWSERLESS_URL = (
     "https://production-sfo.browserless.io/scrape"
-    "?token=" + BROWSERLESS_TOKEN
+    f"?token={BROWSERLESS_TOKEN}"
 )
 
 
 # ============================================================
-# APPEL BROWSERLESS
+# REQUÊTE BROWSERLESS
 # ============================================================
 
 payload = {
@@ -57,26 +82,35 @@ payload = {
 }
 
 
-request = urllib.request.Request(
-    API_URL,
-    data=json.dumps(payload).encode("utf-8"),
-    headers={
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache"
-    },
-    method="POST"
-)
+print("Interrogation de Browserless...")
 
-
-print("Connexion à Browserless...")
-
-with urllib.request.urlopen(request, timeout=90) as response:
-    result = json.loads(
-        response.read().decode("utf-8")
+try:
+    response = requests.post(
+        BROWSERLESS_URL,
+        json=payload,
+        timeout=60
     )
 
+except requests.RequestException as e:
+    print("ERREUR lors de la connexion à Browserless :")
+    print(e)
+    sys.exit(1)
 
-print("Réponse Browserless reçue.")
+
+if response.status_code != 200:
+    print("ERREUR Browserless.")
+    print("Code HTTP :", response.status_code)
+    print(response.text)
+    sys.exit(1)
+
+
+try:
+    result = response.json()
+
+except ValueError:
+    print("ERREUR : Browserless n'a pas retourné du JSON valide.")
+    print(response.text)
+    sys.exit(1)
 
 
 # ============================================================
@@ -86,198 +120,185 @@ print("Réponse Browserless reçue.")
 data = result.get("data", [])
 
 if not data:
-    print(json.dumps(result, indent=2, ensure_ascii=False))
-    raise RuntimeError(
-        "Browserless n'a retourné aucune donnée."
-    )
+    print("ERREUR : aucune donnée reçue de Browserless.")
+    sys.exit(1)
 
 
-competitions = []
-titles = []
-links = []
+competition_elements = []
+title_elements = []
+result_elements = []
 
 
-for block in data:
+for item in data:
 
-    selector = block.get("selector")
-    results = block.get("results", [])
+    selector = item.get("selector")
+    results = item.get("results", [])
 
     if selector == "article.competition_item":
-        competitions = results
+        competition_elements = results
 
     elif selector == ".competition_item__title":
-        titles = results
+        title_elements = results
 
     elif selector == "a.competition_item__results_btn":
-        links = results
+        result_elements = results
 
 
-print()
-print("Compétitions trouvées :", len(competitions))
-print("Titres trouvés :", len(titles))
-print("Liens résultats trouvés :", len(links))
-print()
-
-
-if not competitions:
-    raise RuntimeError(
-        "Aucune compétition FFTA trouvée."
-    )
-
-
-if not titles:
-    raise RuntimeError(
-        "Aucun titre de compétition trouvé."
-    )
-
-
-if not links:
-    raise RuntimeError(
-        "Aucun lien de résultats trouvé."
-    )
+print("Compétitions trouvées :", len(competition_elements))
+print("Titres trouvés :", len(title_elements))
+print("Liens résultats trouvés :", len(result_elements))
 
 
 # ============================================================
-# EXTRACTION TITRES / LIENS
+# CRÉATION DE LA LISTE DES COMPÉTITIONS
 # ============================================================
 
-rss_items = []
+competitions = []
 
 count = min(
-    len(titles),
-    len(links)
+    len(title_elements),
+    len(result_elements)
 )
 
 
 for i in range(count):
 
-    title_result = titles[i]
-    link_result = links[i]
+    title = title_elements[i].get("text", "").strip()
 
-    title = (
-        title_result.get("text")
-        or title_result.get("html")
-        or ""
-    ).strip()
+    link = result_elements[i].get("attributes", {}).get("href", "")
 
-    link = ""
-
-
-    # Recherche de l'attribut href
-    attributes = link_result.get(
-        "attributes",
-        []
-    )
-
-    for attribute in attributes:
-
-        if attribute.get("name") == "href":
-
-            link = (
-                attribute.get("value")
-                or ""
-            ).strip()
-
-            break
-
-
-    # Sécurité supplémentaire
-    if not link:
-
-        link = (
-            link_result.get("href")
-            or ""
-        ).strip()
-
-
-    if not title or not link:
-
-        print(
-            "Élément ignoré :",
-            title,
-            link
-        )
-
+    if not title:
         continue
 
+    if not link:
+        continue
 
-    title_xml = escape(title)
-    link_xml = escape(link)
+    # Certains liens peuvent éventuellement être relatifs.
+    if link.startswith("/"):
+        link = "https://www.ffta.fr" + link
 
-
-    rss_items.append(
-        f"""    <item>
-      <title>{title_xml}</title>
-      <link>{link_xml}</link>
-      <guid isPermaLink="true">{link_xml}</guid>
-      <description>{escape("Résultats : " + title)}</description>
-    </item>"""
+    competitions.append(
+        {
+            "title": title,
+            "link": link
+        }
     )
+
+
+print("Compétitions avec titre + lien :", len(competitions))
 
 
 # ============================================================
 # VÉRIFICATION
 # ============================================================
 
-if not rss_items:
+if not competitions:
+    print()
+    print("ERREUR : aucune compétition exploitable.")
+    print("Le RSS ne sera pas remplacé.")
+    sys.exit(1)
 
-    raise RuntimeError(
-        "Les compétitions ont été trouvées, "
-        "mais aucun article RSS n'a pu être créé."
+
+print()
+print("Compétitions qui seront placées dans le RSS :")
+
+for competition in competitions:
+    print("-", competition["title"])
+    print("  ", competition["link"])
+
+
+# ============================================================
+# CRÉATION DU FICHIER RSS
+# ============================================================
+
+rss = Element(
+    "rss",
+    {
+        "version": "2.0"
+    }
+)
+
+channel = SubElement(rss, "channel")
+
+SubElement(
+    channel,
+    "title"
+).text = "FFTA - Résultats des compétitions"
+
+SubElement(
+    channel,
+    "description"
+).text = (
+    "Résultats des compétitions FFTA "
+    "pour le département 58."
+)
+
+SubElement(
+    channel,
+    "link"
+).text = (
+    "https://www.ffta.fr/competitions"
+)
+
+SubElement(
+    channel,
+    "language"
+).text = "fr"
+
+
+# ============================================================
+# AJOUT DES ARTICLES
+# ============================================================
+
+for competition in competitions:
+
+    item = SubElement(channel, "item")
+
+    SubElement(
+        item,
+        "title"
+    ).text = competition["title"]
+
+    SubElement(
+        item,
+        "link"
+    ).text = competition["link"]
+
+    SubElement(
+        item,
+        "guid"
+    ).text = competition["link"]
+
+    SubElement(
+        item,
+        "description"
+    ).text = (
+        f"Résultats : {competition['title']}"
     )
-
-
-# ============================================================
-# GÉNÉRATION DU RSS
-# ============================================================
-
-now = datetime.now().astimezone()
-
-rss = f"""<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
-
-  <channel>
-
-    <title>FFTA — Résultats des compétitions</title>
-
-    <link>
-      https://www.ffta.fr/competitions
-    </link>
-
-    <description>
-      Résultats des compétitions FFTA — Département 58
-    </description>
-
-    <language>fr-fr</language>
-
-    <lastBuildDate>
-      {format_datetime(now)}
-    </lastBuildDate>
-
-{chr(10).join(rss_items)}
-
-  </channel>
-
-</rss>
-"""
 
 
 # ============================================================
 # ÉCRITURE DU FICHIER
 # ============================================================
 
-with open(
-    "ffta.xml",
-    "w",
-    encoding="utf-8"
-) as file:
+tree = ElementTree(rss)
 
-    file.write(rss)
+tree.write(
+    "ffta.xml",
+    encoding="utf-8",
+    xml_declaration=True
+)
 
 
 print()
-print("======================================")
-print("RSS FFTA généré avec succès")
-print("Nombre d'articles :", len(rss_items))
-print("Fichier : ffta.xml")
-print("======================================")
+print("========================================")
+print("RSS généré avec succès !")
+print("========================================")
+print()
+print("Fichier créé : ffta.xml")
+print()
+print(
+    f"Période FFTA : {start_date.isoformat()} "
+    f"→ {end_date.isoformat()}"
+)
+print()
