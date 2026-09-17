@@ -452,32 +452,26 @@ for competition in competitions:
     # uniquement si un mandat existe.
     #
 
-    description_parts = []
+   description_element = SubElement(
+    item,
+    "description"
+)
 
-
-    if competition["date"]:
-
-        description_parts.append(
-            competition["date"]
-        )
-
-
-    if competition["mandat"]:
-
-        description_parts.append(
-            "Mandat Disponible !"
-        )
-
-
-    description_element = SubElement(
-        item,
-        "description"
+if competition["date"] and competition["mandat"]:
+    description_element.text = (
+        competition["date"]
+        + "<br>"
+        + "Mandat Disponible !"
     )
 
+elif competition["date"]:
+    description_element.text = competition["date"]
 
-    description_element.text = "\n".join(
-        description_parts
-    )
+elif competition["mandat"]:
+    description_element.text = "Mandat Disponible !"
+
+else:
+    description_element.text = ""
 
 
 # ============================================================
