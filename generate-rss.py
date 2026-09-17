@@ -230,7 +230,7 @@ SubElement(
     "description"
 ).text = (
     "Résultats des compétitions FFTA "
-    "pour le département 58."
+    "pour le département 57."
 )
 
 SubElement(
@@ -284,18 +284,17 @@ for competition in competitions:
 tree = ElementTree(rss)
 
 tree.write(
-    "ffta.xml",
+    "FFTA_Resultats.xml",
     encoding="utf-8",
     xml_declaration=True
 )
-
 
 print()
 print("========================================")
 print("RSS généré avec succès !")
 print("========================================")
 print()
-print("Fichier créé : ffta.xml")
+print("Fichier créé : FFTA_Resultats.xml")
 print()
 print(
     f"Période FFTA : {start_date.isoformat()} "
