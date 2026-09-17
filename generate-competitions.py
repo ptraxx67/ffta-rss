@@ -442,38 +442,32 @@ for competition in competitions:
     # --------------------------------------------------------
     # DESCRIPTION
     # --------------------------------------------------------
-    #
-    # Première ligne :
-    #       Date de la compétition
-    #
-    # Deuxième ligne :
-    #       Mandat Disponible !
-    #
-    # uniquement si un mandat existe.
-    #
 
-   description_element = SubElement(
-    item,
-    "description"
-)
-
-if competition["date"] and competition["mandat"]:
-    description_element.text = (
-        competition["date"]
-        + "<br>"
-        + "Mandat Disponible !"
+    description_element = SubElement(
+        item,
+        "description"
     )
 
-elif competition["date"]:
-    description_element.text = competition["date"]
+    if competition["date"] and competition["mandat"]:
 
-elif competition["mandat"]:
-    description_element.text = "Mandat Disponible !"
+        description_element.text = (
+            competition["date"]
+            + "<br />"
+            + "Mandat Disponible !"
+        )
 
-else:
-    description_element.text = ""
+    elif competition["date"]:
 
+        description_element.text = competition["date"]
 
+    elif competition["mandat"]:
+
+        description_element.text = "Mandat Disponible !"
+
+    else:
+
+        description_element.text = ""
+        
 # ============================================================
 # ÉCRITURE DU RSS
 # ============================================================
