@@ -1,0 +1,125 @@
+name: Test FFTA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-ffta:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Tester FFTA avec Browserless
+        env:
+          BROWSERLESS_TOKEN: ${{ secrets.BROWSERLESS_TOKEN }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ["BROWSERLESS_TOKEN"]
+
+          ffta_url = (
+              "https://www.ffta.fr/competitions"
+              "?search="
+              "&start=2025-09-01"
+              "&end=2026-09-01"
+              "&dep%5B%5D=58"
+              "&discipline=103"
+              "&univers=299"
+              "&inter=All"
+              "&sort_by=start"
+              "&sort_order=DESC"
+          )
+
+          api_url = (
+              "https://production-sfo.browserless.io/scrape"
+              "?token=" + token
+          )
+
+          payload = {
+              "url": ffta_url,
+              "elements": [
+                  {
+                      "selector": "article.competition_item"
+                  },
+                  {
+                      "selector": ".competition_item__title"
+                  },
+                  {
+                      "selector": "a.competition_item__results_btn"
+                  }
+              ],
+              "waitForSelector": {
+                  "selector": "article.competition_item",
+                  "timeout": 30000
+              }
+          }
+
+          request = urllib.request.Request(
+              api_url,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Content-Type": "application/json",
+                  "Cache-Control": "no-cache"
+              },
+              method="POST"
+          )
+
+          try:
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  result = json.loads(response.read().decode("utf-8"))
+          except Exception as e:
+              print("ERREUR Browserless :", e)
+              raise
+
+          print("\n========== RESULTAT BROWSERLESS ==========\n")
+          print(json.dumps(result, indent=2, ensure_ascii=False))
+          print("\n==========================================\n")
+
+          data = result.get("data", [])
+
+          competition_selector = next(
+              (
+                  item for item in data
+                  if item.get("selector") == "article.competition_item"
+              ),
+              None
+          )
+
+          title_selector = next(
+              (
+                  item for item in data
+                  if item.get("selector") == ".competition_item__title"
+              ),
+              None
+          )
+
+          link_selector = next(
+              (
+                  item for item in data
+                  if item.get("selector")
+                  == "a.competition_item__results_btn"
+              ),
+              None
+          )
+
+          print("Compétitions trouvées :",
+                len(competition_selector.get("results", []))
+                if competition_selector else 0)
+
+          print("Titres trouvés :",
+                len(title_selector.get("results", []))
+                if title_selector else 0)
+
+          print("Liens résultats trouvés :",
+                len(link_selector.get("results", []))
+                if link_selector else 0)
+
+          if not competition_selector or not competition_selector.get("results"):
+              print("\n❌ FFTA n'a pas fourni les éléments attendus.")
+              print("Cela peut indiquer un blocage Cloudflare.")
+              raise SystemExit(1)
+
+          print("\n✅ Browserless arrive à récupérer les compétitions FFTA.")
+          PY
