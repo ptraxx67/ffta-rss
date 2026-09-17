@@ -166,6 +166,7 @@ for element in competition_elements:
     soup = BeautifulSoup(html, "html.parser")
 
     title_element = soup.select_one(".competition_item__title")
+    date_element = soup.select_one(".competition_item__dates")
 
     if not title_element:
         continue
@@ -174,6 +175,12 @@ for element in competition_elements:
 
     if not title:
         continue
+
+    # Récupération des dates de la compétition.
+    if date_element:
+        competition_date = " ".join(date_element.stripped_strings).strip()
+    else:
+        competition_date = ""
 
     detail_link = find_link(soup, "Détail")
     mandat_link = find_link(soup, "Mandat")
@@ -184,6 +191,7 @@ for element in competition_elements:
     competitions.append(
         {
             "title": unescape(title),
+            "date": competition_date,
             "detail": detail_link,
             "mandat": mandat_link
         }
@@ -292,14 +300,23 @@ for competition in competitions:
     # "Mandat Disponible !" si un mandat existe.
     # Sinon, description vide.
     description_element = SubElement(
-        item,
-        "description"
+    item,
+    "description"
+)
+
+description_parts = []
+
+if competition["date"]:
+    description_parts.append(
+        competition["date"]
     )
 
-    if competition["mandat"]:
-        description_element.text = "Mandat Disponible !"
-    else:
-        description_element.text = ""
+if competition["mandat"]:
+    description_parts.append(
+        "Mandat Disponible !"
+    )
+
+description_element.text = "\n".join(description_parts)
 
 
 # ============================================================
