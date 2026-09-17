@@ -1,4 +1,4 @@
-name: Générer le RSS RESULTAT FFTA
+name: Générer le RSS RESULTATS FFTA
 
 on:
   workflow_dispatch:
@@ -42,6 +42,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Aucune modification du RSS."
           else
-            git commit -m "Mise à jour du flux RSS RESULTAT FFTA"
+            git commit -m "Mise à jour du flux RSS RESULTATS FFTA"
             git push
           fi
