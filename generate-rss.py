@@ -174,8 +174,12 @@ def extract_text(item):
 
 def extract_href(item):
     """
-    Récupère le href en descendant dans les listes/dictionnaires
-    retournés par Browserless.
+    Récupère le href dans la structure retournée par Browserless.
+    Browserless retourne les attributs sous forme de liste :
+    [
+        {"name": "class", "value": "..."},
+        {"name": "href", "value": "..."}
+    ]
     """
 
     if isinstance(item, list):
@@ -191,25 +195,44 @@ def extract_href(item):
 
     if isinstance(item, dict):
 
-        # Cas classique :
-        # {"attributes": {"href": "..."}}
-        attributes = item.get("attributes")
+        # Cas Browserless :
+        # {"name": "href", "value": "https://..."}
+        if item.get("name") == "href":
 
-        if isinstance(attributes, dict):
+            value = item.get("value")
 
-            href = attributes.get("href")
+            if isinstance(value, str) and value:
+                return value
 
-            if isinstance(href, str) and href:
-                return href
-
-        # Autre éventualité : href directement présent.
+        # Cas éventuel où href serait directement présent.
         href = item.get("href")
 
         if isinstance(href, str) and href:
             return href
 
+        # Cas :
+        # {"attributes": [{"name": "href", "value": "..."}]}
+        attributes = item.get("attributes")
+
+        if isinstance(attributes, list):
+
+            for attribute in attributes:
+
+                if (
+                    isinstance(attribute, dict)
+                    and attribute.get("name") == "href"
+                ):
+
+                    value = attribute.get("value")
+
+                    if isinstance(value, str) and value:
+                        return value
+
         # Recherche récursive dans les autres champs.
-        for value in item.values():
+        for key, value in item.items():
+
+            if key == "attributes":
+                continue
 
             if isinstance(value, (dict, list)):
 
@@ -219,8 +242,7 @@ def extract_href(item):
                     return href
 
     return ""
-
-
+    
 # ============================================================
 # CRÉATION DE LA LISTE DES COMPÉTITIONS
 # ============================================================
