@@ -452,7 +452,7 @@ for competition in competitions:
 
         description_element.text = (
             competition["date"]
-            + "&lt;br /&gt;Mandat Disponible !"
+            + "<br>  Mandat Disponible !"
         )
 
     elif competition["date"]:
