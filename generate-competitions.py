@@ -250,7 +250,7 @@ SubElement(
     "description"
 ).text = (
     "Calendrier des compétitions FFTA à venir "
-    "pour le département 58."
+    "pour le département 57."
 )
 
 SubElement(
@@ -288,26 +288,18 @@ for competition in competitions:
         "guid"
     ).text = competition["detail"]
 
-    # Description avec liens cliquables.
-    description_parts = [
-        f"Compétition à venir : {competition['title']}",
-        f'<br><br><a href="{competition["detail"]}">Détail de la compétition</a>'
-    ]
-
-    if competition["mandat"]:
-        description_parts.append(
-            f'<br><a href="{competition["mandat"]}">Mandat</a>'
-        )
-
-    # CDATA pour conserver les liens HTML dans le RSS.
-    description = "".join(description_parts)
-
+    # Description :
+    # "Mandat Disponible !" si un mandat existe.
+    # Sinon, description vide.
     description_element = SubElement(
         item,
         "description"
     )
 
-    description_element.text = description
+    if competition["mandat"]:
+        description_element.text = "Mandat Disponible !"
+    else:
+        description_element.text = ""
 
 
 # ============================================================
@@ -330,40 +322,19 @@ tree.write(
 with open(output_file, "r", encoding="utf-8") as f:
     xml_text = f.read()
 
-for competition in competitions:
+# ============================================================
+# ÉCRITURE DU RSS
+# ============================================================
 
-    description_parts = [
-        f"Compétition à venir : {competition['title']}",
-        f'<br><br><a href="{competition["detail"]}">Détail de la compétition</a>'
-    ]
+output_file = "FFTA_Competition_a_Venir.xml"
 
-    if competition["mandat"]:
-        description_parts.append(
-            f'<br><a href="{competition["mandat"]}">Mandat</a>'
-        )
+tree = ElementTree(rss)
 
-    description = "".join(description_parts)
-
-    escaped_description = (
-        description
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
-
-    original = f"<description>{escaped_description}</description>"
-    replacement = f"<description><![CDATA[{description}]]></description>"
-
-    xml_text = xml_text.replace(
-        original,
-        replacement,
-        1
-    )
-
-with open(output_file, "w", encoding="utf-8") as f:
-    f.write(xml_text)
-
+tree.write(
+    output_file,
+    encoding="utf-8",
+    xml_declaration=True
+)
 
 print()
 print("========================================")
@@ -377,4 +348,4 @@ print(
     f"→ {end_date.isoformat()}"
 )
 print()
-print("Mandats inclus lorsqu'ils sont disponibles.")
+print("Description : 'Mandat Disponible !' lorsqu'un mandat existe.")
