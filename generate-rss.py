@@ -165,7 +165,16 @@ for i in range(count):
 
     title = title_elements[i].get("text", "").strip()
 
-    link = result_elements[i].get("attributes", {}).get("href", "")
+    result_item = result_elements[i]
+
+    # Browserless peut retourner une liste pour le résultat
+    # du sélecteur du lien.
+    if isinstance(result_item, list):
+        if not result_item:
+            continue
+        result_item = result_item[0]
+
+    link = result_item.get("attributes", {}).get("href", "")
 
     if not title:
         continue
@@ -183,10 +192,6 @@ for i in range(count):
             "link": link
         }
     )
-
-
-print("Compétitions avec titre + lien :", len(competitions))
-
 
 # ============================================================
 # VÉRIFICATION
